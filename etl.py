@@ -1,5 +1,7 @@
 from pathlib import Path
 import os
+import time
+import math
 
 import pandas as pd
 
@@ -44,8 +46,62 @@ def extract(path: Path, assembly="GRCh38", chunksize=200_000):
         parts.append(chunk)
     return pd.concat(parts, ignore_index=True)
 
+def classify_significance(raw):
+    #streamlines the significance categories
+    for index, row in raw.iterrows():
+        if ("Conflicting" in row["significance_raw"]):
+            raw.at[index, "significance_raw"] = "Conflicting"
+        elif (row["significance_raw"].startswith("Pathogenic")):
+            raw.at[index, "significance_raw"] = "Pathogenic"
+        elif (row["significance_raw"].startswith("Likely pathogenic")):
+            raw.at[index, "significance_raw"] = "Likely pathogenic"
+        elif ("Uncertain" in row["significance_raw"]):
+            raw.at[index, "significance_raw"] = "VUS"
+        elif (row["significance_raw"].startswith("Benign")):
+            raw.at[index, "significance_raw"] = "Benign"
+        elif (row["significance_raw"].startswith("Likely benign")):
+            raw.at[index, "significance_raw"] = "Likely benign"
+        else:
+            raw.at[index, "significance_raw"] = "Other"
+    raw.rename(columns={"significance_raw": "significance"}, inplace=True)
+    return raw
+
+def review_stars(raw):
+    #turns the value of review status into the star number on the webpage
+    for index, row in raw.iterrows():
+        if ("practice guideline" in row["review_status"]):
+            raw.at[index, "review_status"] = "4"
+        elif ("reviewed by expert panel" in row["review_status"]):
+            raw.at[index, "review_status"] = "3"
+        elif ("multiple submitters, no conflicts" in row["review_status"]):
+            raw.at[index, "review_status"] = "2"
+        elif ("criteria provided" in row["review_status"] and "no assertion" not in row["review_status"]):
+            raw.at[index, "review_status"] = "1"
+        else:
+            raw.at[index, "review_status"] = "0"
+    return raw
+
+def transform(raw):
+    #transforms the dataframe to filter for false entries, duplicates
+    #and streamlines review status and significance classes
+    raw = classify_significance(raw)
+    raw = review_stars(raw)
+    raw["last_evaluated"] = pd.to_datetime(raw["last_evaluated"], format="%b %d, %Y", errors="coerce")
+    raw["start_pos"] = pd.to_numeric(raw["start_pos"], errors="coerce")
+    raw["stop_pos"] = pd.to_numeric(raw["stop_pos"], errors="coerce")
+    #raw = raw[raw["stop_pos"] < raw["start_pos"]]
+    raw.dropna(axis= 0, subset= ["stop_pos", "start_pos"], inplace= True)
+    raw.drop_duplicates(subset= ["variation_id", "assembly"], inplace= True)
+    return raw
+
 cwd = os.getcwd()
 cwd = cwd + "\\data\\variant_summary.txt.gz"
+start = time.time()
 db = extract(cwd)
-print(db)
-print(len(db))
+db = transform(db)
+end = time.time()
+total_time = (end - start)/60
+print(total_time)
+#print(db["review_status"])
+print(db["significance"].value_counts())
+#print(db["start_pos"].dtype)
