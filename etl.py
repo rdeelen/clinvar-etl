@@ -1,7 +1,7 @@
 from pathlib import Path
+from collections import Counter
 import os
 import time
-import math
 
 import pandas as pd
 
@@ -46,8 +46,9 @@ def extract(path: Path, assembly="GRCh38", chunksize=200_000):
         parts.append(chunk)
     return pd.concat(parts, ignore_index=True)
 
+
 def classify_significance(raw):
-    #streamlines the significance categories
+    """streamlines the significance categories"""
     for index, row in raw.iterrows():
         if ("Conflicting" in row["significance_raw"]):
             raw.at[index, "significance_raw"] = "Conflicting"
@@ -66,8 +67,9 @@ def classify_significance(raw):
     raw.rename(columns={"significance_raw": "significance"}, inplace=True)
     return raw
 
+
 def review_stars(raw):
-    #turns the value of review status into the star number on the webpage
+    """turns the value of review status into the star number on the webpage"""
     for index, row in raw.iterrows():
         if ("practice guideline" in row["review_status"]):
             raw.at[index, "review_status"] = "4"
@@ -81,9 +83,10 @@ def review_stars(raw):
             raw.at[index, "review_status"] = "0"
     return raw
 
+
 def transform(raw):
-    #transforms the dataframe to filter for false entries, duplicates
-    #and streamlines review status and significance classes
+    """transforms the dataframe to filter for false entries, duplicates
+    and streamlines review status and significance classes"""
     raw = classify_significance(raw)
     raw = review_stars(raw)
     raw["last_evaluated"] = pd.to_datetime(raw["last_evaluated"], format="%b %d, %Y", errors="coerce")
@@ -94,6 +97,39 @@ def transform(raw):
     raw.drop_duplicates(subset= ["variation_id", "assembly"], inplace= True)
     return raw
 
+
+def validate(data):
+    """Checks the dataframe for significant errors (wrong genes, wrong review status)"""
+    if (data.empty):
+        raise ValueError("Dataframe is empty")
+    
+    header = data.columns.values
+    header = Counter(header)
+    if (header["variation_id"] == 2):
+        raise ValueError("variation_id exists twice")
+    if (header["assembly"] == 2):
+        raise ValueError("assembly exists twice")
+    
+    review_value = set(data["review_status"])
+    review_value.discard("0")
+    review_value.discard("1")
+    review_value.discard("2")
+    review_value.discard("3")
+    review_value.discard("4")
+    if (bool(review_value)):
+        raise ValueError("review_status is out of range")
+    
+    genes_df = set(data["gene"])
+    genes_list = list(GENES.keys())
+    for value in genes_df:
+        if (value not in genes_list):
+            raise ValueError(f"wrong gene in gene list: {value}")
+    for value in genes_list:
+        if (value not in genes_df):
+            raise ValueError(f"gene is missing: {value}")
+    
+    
+
 cwd = os.getcwd()
 cwd = cwd + "\\data\\variant_summary.txt.gz"
 start = time.time()
@@ -102,6 +138,7 @@ db = transform(db)
 end = time.time()
 total_time = (end - start)/60
 print(total_time)
+validate(db)
 #print(db["review_status"])
-print(db["significance"].value_counts())
+#print(db["significance"].value_counts())
 #print(db["start_pos"].dtype)
