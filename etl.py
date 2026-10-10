@@ -92,7 +92,7 @@ def transform(raw):
     raw["last_evaluated"] = pd.to_datetime(raw["last_evaluated"], format="%b %d, %Y", errors="coerce")
     raw["start_pos"] = pd.to_numeric(raw["start_pos"], errors="coerce")
     raw["stop_pos"] = pd.to_numeric(raw["stop_pos"], errors="coerce")
-    #raw = raw[raw["stop_pos"] < raw["start_pos"]]
+    raw = raw[raw["stop_pos"] >= raw["start_pos"]]
     raw.dropna(axis= 0, subset= ["stop_pos", "start_pos"], inplace= True)
     raw.drop_duplicates(subset= ["variation_id", "assembly"], inplace= True)
     return raw
@@ -140,5 +140,5 @@ total_time = (end - start)/60
 print(total_time)
 validate(db)
 #print(db["review_status"])
-#print(db["significance"].value_counts())
+print(db["significance"].value_counts())
 #print(db["start_pos"].dtype)
