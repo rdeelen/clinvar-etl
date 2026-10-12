@@ -4,6 +4,7 @@ import os
 import time
 
 import pandas as pd
+import sqlite3
 
 
 GENES = {
@@ -128,17 +129,25 @@ def validate(data):
         if (value not in genes_df):
             raise ValueError(f"gene is missing: {value}")
     
-    
+
+def insert_db(data):
+    genes_data = list(GENES.items())
+    data = data.replace({float('nan'): None})
+    all_data = list(data.itertuples(index=False, name=None))
+    with sqlite3.connect("clinvar.db") as con:
+        con.executescript(open("schema.sql").read())
+        con.executemany("INSERT INTO genes VALUES (gene, role)", genes_data)
+        #con.executemany("INSERT INTO variants VALUES (?,?,?,...)", records)    
 
 cwd = os.getcwd()
 cwd = cwd + "\\data\\variant_summary.txt.gz"
 start = time.time()
-db = extract(cwd)
-db = transform(db)
+df = extract(cwd)
+df = transform(df)
 end = time.time()
 total_time = (end - start)/60
 print(total_time)
-validate(db)
+validate(df)
 #print(db["review_status"])
-print(db["significance"].value_counts())
+print(df["significance"].value_counts())
 #print(db["start_pos"].dtype)
