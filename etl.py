@@ -131,6 +131,7 @@ def validate(data):
     
 
 def insert_db(data):
+    """makes the data SQL readable and inserts it into the database"""
     genes_data = list(GENES.items())
     data = data.copy()
     data.rename(columns={"review_status": "review_stars"}, inplace=True)
@@ -145,19 +146,20 @@ def insert_db(data):
         con.executemany("""INSERT INTO variants (variation_id, assembly, gene, significance,
             review_stars, last_evaluated, start_pos, stop_pos) VALUES (?, ?, ?, ?, ?, ?, ?, ?)""", records)
 
-cwd = os.getcwd()
-cwd = cwd + "\\data\\variant_summary.txt.gz"
-start = time.time()
-df = extract(cwd)
-df = transform(df)
-end = time.time()
-total_time = (end - start)/60
-print(total_time)
-validate(df)
-insert_db(df)
-#print(df["last_evaluated"].isna().sum(), "von", len(df))
-#print(df[df["last_evaluated"].isna()].head())
-#print(df.columns.values)
-#print(df["review_status"])
-#print(df["significance"].value_counts())
-#print(df["start_pos"].dtype)
+if __name__ == "__main__":
+    cwd = os.getcwd()
+    cwd = cwd + "\\data\\variant_summary.txt.gz"
+    start = time.time()
+    df = extract(cwd)
+    df = transform(df)
+    end = time.time()
+    total_time = (end - start)/60
+    print(total_time)
+    validate(df)
+    insert_db(df)
+    #print(df["last_evaluated"].isna().sum(), "von", len(df))
+    #print(df[df["last_evaluated"].isna()].head())
+    #print(df.columns.values)
+    #print(df["review_status"])
+    #print(df["significance"].value_counts())
+    #print(df["start_pos"].dtype)
