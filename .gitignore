@@ -222,3 +222,4 @@ __marimo__/
 data/
 *.db
 report/
+.vscode/settings.json

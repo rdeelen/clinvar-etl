@@ -132,12 +132,18 @@ def validate(data):
 
 def insert_db(data):
     genes_data = list(GENES.items())
-    data = data.replace({float('nan'): None})
-    all_data = list(data.itertuples(index=False, name=None))
+    data = data.copy()
+    data.rename(columns={"review_status": "review_stars"}, inplace=True)
+    data["last_evaluated"] = data["last_evaluated"].dt.strftime("%Y-%m-%d")
+    data = data.astype(object).where(data.notna(), None)
+    cols = ["variation_id", "assembly", "gene", "significance",
+            "review_stars", "last_evaluated", "start_pos", "stop_pos"]
+    records = list(data[cols].itertuples(index=False, name=None))
     with sqlite3.connect("clinvar.db") as con:
         con.executescript(open("schema.sql").read())
-        con.executemany("INSERT INTO genes VALUES (gene, role)", genes_data)
-        #con.executemany("INSERT INTO variants VALUES (?,?,?,...)", records)    
+        con.executemany("INSERT INTO genes (gene, role) VALUES (?, ?)", genes_data)
+        con.executemany("""INSERT INTO variants (variation_id, assembly, gene, significance,
+            review_stars, last_evaluated, start_pos, stop_pos) VALUES (?, ?, ?, ?, ?, ?, ?, ?)""", records)
 
 cwd = os.getcwd()
 cwd = cwd + "\\data\\variant_summary.txt.gz"
@@ -148,6 +154,10 @@ end = time.time()
 total_time = (end - start)/60
 print(total_time)
 validate(df)
-#print(db["review_status"])
-print(df["significance"].value_counts())
-#print(db["start_pos"].dtype)
+insert_db(df)
+#print(df["last_evaluated"].isna().sum(), "von", len(df))
+#print(df[df["last_evaluated"].isna()].head())
+#print(df.columns.values)
+#print(df["review_status"])
+#print(df["significance"].value_counts())
+#print(df["start_pos"].dtype)
